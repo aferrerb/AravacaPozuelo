@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Xcode
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+Aravaca_Pozuelo/Aravaca_Pozuelo.xcodeproj/xcuserdata/
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+build/
+
+# CocoaPods (if you ever add them)
+Pods/
+Podfile.lock
+
+# PHP / admin panel
+admin/config.php
+*.log
+
+# Android (for later)
+android/.gradle/
+android/build/
+android/local.properties
+android/*.iml
+android/.idea/
