@@ -7,6 +7,7 @@
 
 #import "NavDrawerViewController.h"
 #import "AppData.h"
+#import "GateKeeper.h"
 
 static CGFloat const kDrawerWidthFraction = 0.25;
 static NSString * const kCellID = @"NavDrawerCell";
@@ -244,31 +245,44 @@ static NSString * const kCellID = @"NavDrawerCell";
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     NSDictionary *item = self.navItems[indexPath.row];
     NSString *dtype    = item[@"destination_type"];
+    BOOL isGated = [item[@"is_gated"] boolValue];
+    NSString *hint = item[@"credentials_hint"];
+    if (hint == (id)[NSNull null]) hint = nil;
+    if (isGated) {
+        [GateKeeper presentGateFrom:self credentialsHint:hint completion:^(BOOL granted) {
+            if (granted) {
+                [self closeAnimated:YES];
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
+                               dispatch_get_main_queue(), ^{
+                    [self navigateItem:item dtype:dtype];
+                });
+            }
+        }];
+    } else {
+        [self closeAnimated:YES];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [self navigateItem:item dtype:dtype];
+        });
+    }
+}
 
-    [self closeAnimated:YES];
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
-        if ([dtype isEqualToString:@"home"] || dtype == nil || [dtype isEqualToString:@""]) {
-            [self.delegate drawerDidSelectHome];
-
-        } else if ([dtype isEqualToString:@"url"]) {
-            [self.delegate drawerDidSelectURL:item[@"destination_url"] ?: @""
-                                        title:item[@"title"] ?: @""];
-
-        } else if ([dtype isEqualToString:@"article"]) {
-            NSInteger articleID = [item[@"destination_article_id"] integerValue];
-            [self.delegate drawerDidSelectArticleID:articleID];
-
-        } else if ([dtype isEqualToString:@"page"]) {
-            NSInteger pageID = [item[@"destination_page_id"] integerValue];
-            [self.delegate drawerDidSelectPageID:pageID];
-
-        } else if ([dtype isEqualToString:@"pdf"]) {
-            [self.delegate drawerDidSelectPDFURL:item[@"destination_url"] ?: @""
-                                           title:item[@"title"] ?: @""];
-        }
-    });
+- (void)navigateItem:(NSDictionary *)item dtype:(NSString *)dtype {
+    if ([dtype isEqualToString:@"home"] || dtype == nil || [dtype isEqualToString:@""]) {
+        [self.delegate drawerDidSelectHome];
+    } else if ([dtype isEqualToString:@"url"]) {
+        [self.delegate drawerDidSelectURL:item[@"destination_url"] ?: @""
+                                    title:item[@"title"] ?: @""];
+    } else if ([dtype isEqualToString:@"article"]) {
+        NSInteger articleID = [item[@"destination_article_id"] integerValue];
+        [self.delegate drawerDidSelectArticleID:articleID];
+    } else if ([dtype isEqualToString:@"page"]) {
+        NSInteger pageID = [item[@"destination_page_id"] integerValue];
+        [self.delegate drawerDidSelectPageID:pageID];
+    } else if ([dtype isEqualToString:@"pdf"]) {
+        [self.delegate drawerDidSelectPDFURL:item[@"destination_url"] ?: @""
+                                       title:item[@"title"] ?: @""];
+    }
 }
 
 @end

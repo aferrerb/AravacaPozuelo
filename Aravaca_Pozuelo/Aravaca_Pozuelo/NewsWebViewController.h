@@ -10,5 +10,6 @@
 
 @property (nonatomic, strong) NSString *urlString;
 @property (nonatomic, strong) NSString *newsTitle;
+@property (nonatomic, copy) NSString *credentialsHint;
 
 @end

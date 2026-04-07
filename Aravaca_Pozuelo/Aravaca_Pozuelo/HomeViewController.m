@@ -15,6 +15,7 @@
 #import "PageViewController.h"
 #import "ArticleViewController.h"
 #import "NavDrawerViewController.h"
+#import "GateKeeper.h"
 
 
 static NSString * const kNewsCellID    = @"NewsCell";
@@ -463,7 +464,19 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
 - (void)gridItemTapped:(UIButton *)sender {
     NSDictionary *item = objc_getAssociatedObject(sender, "itemData");
-    [self navigateToItem:item];
+    BOOL isGated = [item[@"is_gated"] boolValue];
+    NSString *hint = item[@"credentials_hint"];
+    if (hint == (id)[NSNull null]) hint = nil;
+
+    if (isGated) {
+        [GateKeeper presentGateFrom:self credentialsHint:hint completion:^(BOOL granted) {
+            if (granted) {
+                [self navigateToItem:item];
+            }
+        }];
+    } else {
+        [self navigateToItem:item];
+    }
 }
 
 #pragma mark - Navigation
@@ -591,7 +604,18 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
     if (cv.tag == 200) {
         NSDictionary *item = self.bannerItems[indexPath.item % self.bannerItems.count];
-        [self navigateToItem:item];
+        BOOL isGated = [item[@"is_gated"] boolValue];
+
+        if (isGated) {
+            NSString *hint = item[@"credentials_hint"];
+            if (hint == (id)[NSNull null]) hint = nil;
+            [GateKeeper presentGateFrom:self credentialsHint:hint completion:^(BOOL granted) {                if (granted) {
+                    [self navigateToItem:item];
+                }
+            }];
+        } else {
+            [self navigateToItem:item];
+        }
     }
 }
 

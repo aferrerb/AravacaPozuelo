@@ -11,6 +11,8 @@
 #import <objc/runtime.h>
 #import "NewsItem.h"
 #import "ArticleViewController.h"
+#import "GateKeeper.h"
+#import "CredentialsHintViewController.h"
 
 @interface PageViewController () <UITableViewDelegate, UITableViewDataSource, QLPreviewControllerDataSource>
 @property (nonatomic, strong) NSDictionary *page;
@@ -165,7 +167,34 @@
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tv deselectRowAtIndexPath:indexPath animated:YES];
     NSDictionary *item = self.items[indexPath.row];
-    [self navigateToItem:item];
+    BOOL isGated = [item[@"is_gated"] boolValue];
+    NSString *hint = item[@"credentials_hint"];
+    if (hint == (id)[NSNull null]) hint = nil;
+
+    if (isGated && ![GateKeeper isUnlocked]) {
+        [GateKeeper presentGateFrom:self credentialsHint:hint completion:^(BOOL granted) {
+            if (granted) {
+                [self showHintIfNeeded:hint thenNavigate:item];
+            }
+        }];
+    } else {
+        [self showHintIfNeeded:hint thenNavigate:item];
+    }
+}
+
+- (void)showHintIfNeeded:(NSString *)hint thenNavigate:(NSDictionary *)item {
+    if (hint && hint.length > 0) {
+        CredentialsHintViewController *hintVC = [[CredentialsHintViewController alloc] init];
+        hintVC.hint = hint;
+        hintVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
+        hintVC.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+        hintVC.onContinue = ^{
+            [self navigateToItem:item];
+        };
+        [self presentViewController:hintVC animated:YES completion:nil];
+    } else {
+        [self navigateToItem:item];
+    }
 }
 
 #pragma mark - Navigation
@@ -177,6 +206,7 @@
         NewsWebViewController *webVC = [[NewsWebViewController alloc] init];
         webVC.urlString = item[@"destination_url"];
         webVC.newsTitle = item[@"title"];
+        webVC.credentialsHint = item[@"credentials_hint"] == (id)[NSNull null] ? nil : item[@"credentials_hint"];
         [self.navigationController pushViewController:webVC animated:YES];
 
     } else if ([dtype isEqualToString:@"article"]) {

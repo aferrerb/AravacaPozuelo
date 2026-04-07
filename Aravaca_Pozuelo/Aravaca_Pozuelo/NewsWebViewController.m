@@ -6,6 +6,7 @@
 //
 #import "NewsWebViewController.h"
 #import <WebKit/WebKit.h>
+#import "CredentialsHintViewController.h"
 
 @interface NewsWebViewController ()
 @property (nonatomic, strong) UIView    *headerView;
@@ -20,6 +21,21 @@
     [self setupHeader];
     [self setupWebView];
     [self loadNews];
+    if (self.credentialsHint && self.credentialsHint.length > 0) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [self showCredentialsHint];
+        });
+    }
+}
+
+- (void)showCredentialsHint {
+    CredentialsHintViewController *hintVC = [[CredentialsHintViewController alloc] init];
+    hintVC.hint = self.credentialsHint;
+    hintVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
+    hintVC.modalTransitionStyle = UIModalTransitionStyleCrossDissolve;
+    hintVC.onContinue = nil; // just dismiss, already on the page
+    [self presentViewController:hintVC animated:YES completion:nil];
 }
 
 // ── Header ────────────────────────────────────────────────────────────────────
@@ -76,6 +92,26 @@
         [sep.trailingAnchor constraintEqualToAnchor:_headerView.trailingAnchor],
         [sep.heightAnchor constraintEqualToConstant:0.5],
     ]];
+    if (self.credentialsHint && self.credentialsHint.length > 0) {
+        UIButton *hintBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+        UIImage *hintIcon = [UIImage systemImageNamed:@"key.fill"];
+        [hintBtn setImage:hintIcon forState:UIControlStateNormal];
+        hintBtn.tintColor = [UIColor colorWithRed:0x2D/255.0
+                                                green:0x5E/255.0
+                                                 blue:0x61/255.0
+                                                alpha:1.0];
+        hintBtn.translatesAutoresizingMaskIntoConstraints = NO;
+        [hintBtn addTarget:self action:@selector(showCredentialsHint)
+            forControlEvents:UIControlEventTouchUpInside];
+        [_headerView addSubview:hintBtn];
+
+        [NSLayoutConstraint activateConstraints:@[
+            [hintBtn.trailingAnchor constraintEqualToAnchor:_headerView.trailingAnchor constant:-16],
+            [hintBtn.bottomAnchor constraintEqualToAnchor:_headerView.bottomAnchor constant:-10],
+            [hintBtn.widthAnchor constraintEqualToConstant:36],
+            [hintBtn.heightAnchor constraintEqualToConstant:36],
+        ]];
+    }
 }
 
 // ── Web View ──────────────────────────────────────────────────────────────────
