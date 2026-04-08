@@ -19,7 +19,8 @@
     self = [super initWithFrame:frame];
     if (self) {
         // ── Card shape ───────────────────────────────────────
-        self.contentView.backgroundColor    = [UIColor clearColor];
+        //self.contentView.backgroundColor    = [UIColor clearColor];
+        self.contentView.backgroundColor = [UIColor colorWithRed:0.98 green:0.96 blue:0.93 alpha:1.0];
         self.contentView.layer.cornerRadius = 12;
         self.contentView.layer.masksToBounds = YES;
         self.layer.shadowColor   = [UIColor blackColor].CGColor;

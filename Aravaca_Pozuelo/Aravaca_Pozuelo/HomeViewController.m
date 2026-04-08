@@ -16,6 +16,7 @@
 #import "ArticleViewController.h"
 #import "NavDrawerViewController.h"
 #import "GateKeeper.h"
+#import "SettingsViewController.h"
 
 
 static NSString * const kNewsCellID    = @"NewsCell";
@@ -233,7 +234,26 @@ static NSString * const kBannerCellID  = @"BannerCell";
 #pragma mark - Banner Carousel
 
 - (void)addBannerCarousel:(NSArray *)items {
-    self.bannerItems = items;
+    // Reorder based on preferred centro
+    NSInteger preferredID = [[NSUserDefaults standardUserDefaults] integerForKey:@"ap_preferred_centro"];
+    NSMutableArray *reordered = [items mutableCopy];
+    
+    if (preferredID > 0) {
+        NSInteger preferredIndex = NSNotFound;
+        for (NSInteger i = 0; i < reordered.count; i++) {
+            if ([reordered[i][@"id"] integerValue] == preferredID) {
+                preferredIndex = i;
+                break;
+            }
+        }
+        if (preferredIndex != NSNotFound && preferredIndex != 0) {
+            NSDictionary *preferred = reordered[preferredIndex];
+            [reordered removeObjectAtIndex:preferredIndex];
+            [reordered insertObject:preferred atIndex:0];
+        }
+    }
+    
+    self.bannerItems = [reordered copy];
     
     UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
     layout.scrollDirection = UICollectionViewScrollDirectionHorizontal;
@@ -308,7 +328,7 @@ static NSString * const kBannerCellID  = @"BannerCell";
     gridView.backgroundColor = [UIColor clearColor];
     gridView.translatesAutoresizingMaskIntoConstraints = NO;
 
-    UIColor *neutralDivider = [UIColor colorWithWhite:0.84 alpha:0.22];
+    UIColor *neutralDivider = [UIColor colorWithWhite:0.84 alpha:0.85];
 
     UIView *topBorder = [[UIView alloc] init];
     topBorder.backgroundColor = neutralDivider;
@@ -752,6 +772,10 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
 - (UIColor *)titleColorFromBaseColor:(UIColor *)color {
     return [self blendedColorFromColor:color withWhiteAmount:0.05 alpha:1.0];
+}
+- (void)drawerDidSelectSettings {
+    SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
+    [self.navigationController pushViewController:settingsVC animated:YES];
 }
 
 @end

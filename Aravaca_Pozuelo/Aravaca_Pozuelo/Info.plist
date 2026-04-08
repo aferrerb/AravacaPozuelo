@@ -32,5 +32,18 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>klinema.com</key>
+			<dict>
+				<key>Allows Insecure HTTP Loads</key>
+				<true/>
+				<key>Include All Subdomains</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 </dict>
 </plist>

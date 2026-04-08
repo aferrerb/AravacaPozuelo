@@ -8,9 +8,11 @@
 #import "ArticleViewController.h"
 #import <WebKit/WebKit.h>
 
-@interface ArticleViewController ()
+@interface ArticleViewController () <WKNavigationDelegate>
 @property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, assign) NSInteger fontSize;
+
+
 @end
 
 @implementation ArticleViewController
@@ -180,10 +182,12 @@
 
 - (void)setupWebView {
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+    config.dataDetectorTypes = WKDataDetectorTypeLink | WKDataDetectorTypePhoneNumber;
     _webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
     _webView.translatesAutoresizingMaskIntoConstraints = NO;
     _webView.backgroundColor = [UIColor whiteColor];
     _webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    _webView.navigationDelegate = self;
     [self.view addSubview:_webView];
 
     
@@ -230,6 +234,27 @@
 
 - (void)goBack {
     [self.navigationController popViewControllerAnimated:YES];
+}
+
+#pragma mark - WKNavigationDelegate
+
+- (void)webView:(WKWebView *)webView
+    decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction
+                    decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+
+    NSURL *url = navigationAction.request.URL;
+
+    if ([url.scheme isEqualToString:@"mailto"]) {
+        if ([[UIApplication sharedApplication] canOpenURL:url]) {
+            [[UIApplication sharedApplication] openURL:url
+                                               options:@{}
+                                     completionHandler:nil];
+        }
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+
+    decisionHandler(WKNavigationActionPolicyAllow);
 }
 
 @end

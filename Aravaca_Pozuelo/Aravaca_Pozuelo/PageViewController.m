@@ -73,7 +73,7 @@
         [headerView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [headerView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [headerView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [headerView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:52],
+        [headerView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:68],
     ]];
 
     UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -94,6 +94,7 @@
     titleLabel.textColor = [UIColor blackColor];
     titleLabel.text = self.page[@"title"] ?: @"";
     titleLabel.font = [UIFont fontWithName:@"CabinSketch-Regular" size:28];
+    titleLabel.numberOfLines = 2;
     titleLabel.textAlignment = NSTextAlignmentCenter;
     titleLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [headerView addSubview:titleLabel];
@@ -126,7 +127,7 @@
     [self.view addSubview:_tableView];
 
     [NSLayoutConstraint activateConstraints:@[
-        [_tableView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:52],
+        [_tableView.topAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:68],
         [_tableView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [_tableView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [_tableView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
@@ -147,6 +148,8 @@
 
     cell.textLabel.text = item[@"title"];
     cell.textLabel.font = [UIFont fontWithName:@"Karla-Regular" size:24];
+    cell.textLabel.numberOfLines = 0;
+    cell.textLabel.lineBreakMode = NSLineBreakByWordWrapping;
     cell.textLabel.textColor = [UIColor colorWithWhite:0.15 alpha:1.0];
     cell.accessoryType = UITableViewCellAccessoryNone;
     UIImageView *chevron = [[UIImageView alloc] initWithImage:[UIImage systemImageNamed:@"chevron.right"]];
@@ -159,7 +162,10 @@
 }
 
 - (CGFloat)tableView:(UITableView *)tv heightForRowAtIndexPath:(NSIndexPath *)indexPath {
-    return 56.0;
+    return UITableViewAutomaticDimension;
+}
+- (CGFloat)tableView:(UITableView *)tv estimatedHeightForRowAtIndexPath:(NSIndexPath *)indexPath {
+    return 72.0;
 }
 
 #pragma mark - UITableViewDelegate

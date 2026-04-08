@@ -49,7 +49,7 @@
         [_headerView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [_headerView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [_headerView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
-        [_headerView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:52],
+        [_headerView.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor constant:68],
     ]];
 
     UIButton *homeBtn = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -70,6 +70,7 @@
 
     UILabel *titleLabel = [[UILabel alloc] init];
     titleLabel.textColor = [UIColor blackColor];
+    titleLabel.numberOfLines = 2;
     titleLabel.text = self.newsTitle;
     titleLabel.font = [UIFont fontWithName:@"CabinSketch-Regular" size:24];
     titleLabel.textAlignment = NSTextAlignmentCenter;

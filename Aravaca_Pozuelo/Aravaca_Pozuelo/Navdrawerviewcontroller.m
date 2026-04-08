@@ -8,6 +8,7 @@
 #import "NavDrawerViewController.h"
 #import "AppData.h"
 #import "GateKeeper.h"
+#import "SettingsViewController.h"
 
 static CGFloat const kDrawerWidthFraction = 0.25;
 static NSString * const kCellID = @"NavDrawerCell";
@@ -71,6 +72,7 @@ static NSString * const kCellID = @"NavDrawerCell";
     [settingsBtn setImage:gearIcon forState:UIControlStateNormal];
     settingsBtn.imageView.contentMode = UIViewContentModeScaleAspectFit;
     settingsBtn.translatesAutoresizingMaskIntoConstraints = NO;
+    [settingsBtn addTarget:self action:@selector(settingsTapped) forControlEvents:UIControlEventTouchUpInside];
 
     UILabel *settingsLabel = [[UILabel alloc] init];
     settingsLabel.text = @"Settings";
@@ -284,5 +286,13 @@ static NSString * const kCellID = @"NavDrawerCell";
                                        title:item[@"title"] ?: @""];
     }
 }
+- (void)settingsTapped {
+    [self closeAnimated:YES];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [self.delegate drawerDidSelectSettings];
+    });
+}
+
 
 @end

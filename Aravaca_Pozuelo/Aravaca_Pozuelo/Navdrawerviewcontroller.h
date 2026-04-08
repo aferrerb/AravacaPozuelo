@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)drawerDidSelectArticleID:(NSInteger)articleID;
 - (void)drawerDidSelectPageID:(NSInteger)pageID;
 - (void)drawerDidSelectPDFURL:(NSString *)urlString title:(NSString *)title;
+- (void)drawerDidSelectSettings;
 @end
 
 @interface NavDrawerViewController : UIViewController
