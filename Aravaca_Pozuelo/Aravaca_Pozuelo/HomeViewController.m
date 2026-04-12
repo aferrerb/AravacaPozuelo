@@ -162,6 +162,7 @@ static NSString * const kBannerCellID  = @"BannerCell";
     _stackView.axis = UILayoutConstraintAxisVertical;
     _stackView.spacing = 0;
     _stackView.translatesAutoresizingMaskIntoConstraints = NO;
+   
     [_scrollView addSubview:_stackView];
 
     [NSLayoutConstraint activateConstraints:@[
@@ -171,6 +172,7 @@ static NSString * const kBannerCellID  = @"BannerCell";
         [_stackView.bottomAnchor constraintEqualToAnchor:_scrollView.bottomAnchor],
         [_stackView.widthAnchor constraintEqualToAnchor:_scrollView.widthAnchor],
     ]];
+    
 }
 
 #pragma mark - News Carousel
@@ -193,7 +195,8 @@ static NSString * const kBannerCellID  = @"BannerCell";
     CGFloat sideInset  = 16.0;
     CGFloat spacing    = 12.0;
     CGFloat peekWidth  = 20.0;
-    CGFloat cardWidth  = (self.view.bounds.size.width - sideInset * 2 - spacing - peekWidth) / 2;
+    CGFloat screenWidth = [self isPad] ? MIN(self.view.bounds.size.width, 600.0) : self.view.bounds.size.width;
+    CGFloat cardWidth  = (screenWidth - sideInset * 2 - spacing - peekWidth) / 2;
     CGFloat cardHeight = cardWidth * 1.1;
     
     layout.itemSize                = CGSizeMake(cardWidth, cardHeight);
@@ -258,7 +261,8 @@ static NSString * const kBannerCellID  = @"BannerCell";
     UICollectionViewFlowLayout *layout = [[UICollectionViewFlowLayout alloc] init];
     layout.scrollDirection = UICollectionViewScrollDirectionHorizontal;
     
-    CGFloat cardWidth  = self.view.bounds.size.width - 100.0;
+    CGFloat maxWidth   = self.isPad ? 500.0 : self.view.bounds.size.width;
+    CGFloat cardWidth  = MIN(self.view.bounds.size.width - 100.0, maxWidth);
     CGFloat cardHeight = cardWidth * 0.70;
     CGFloat sideInset  = 32.0;
     
@@ -284,6 +288,9 @@ static NSString * const kBannerCellID  = @"BannerCell";
     [_bannerCollectionView.heightAnchor constraintEqualToConstant:cardHeight + 24].active = YES;
     
     [_stackView addArrangedSubview:_bannerCollectionView];
+    if ([self isPad]) {
+        [_bannerCollectionView.widthAnchor constraintEqualToConstant:self.view.bounds.size.width].active = YES;
+    }
     dispatch_async(dispatch_get_main_queue(), ^{
         [self centerBannerCarousel];
     });
@@ -322,13 +329,25 @@ static NSString * const kBannerCellID  = @"BannerCell";
     NSInteger cols = MAX(1, [row[@"columns_count"] integerValue]);
     if (!items.count) return;
 
-    CGFloat cellSize = self.view.bounds.size.width / cols;
+    BOOL pad = [self isPad];
+    CGFloat screenWidth = self.view.bounds.size.width;
+    CGFloat gridWidth   = pad ? MIN(screenWidth, 600.0) : screenWidth;
+    CGFloat cellSize    = gridWidth / cols;
+    CGFloat iconSize    = cellSize * 0.38;
+    CGFloat faIconSize  = cellSize * 0.30;
+    CGFloat labelSize   = cellSize * 0.13;
+    CGFloat faLabelSize = cellSize * 0.102;
+    CGFloat rowHeight   = cellSize * 1.3;
+    NSInteger rowCount  = (NSInteger)ceil((double)items.count / cols);
+    CGFloat totalHeight = rowHeight * rowCount;
 
     UIView *gridView = [[UIView alloc] init];
     gridView.backgroundColor = [UIColor clearColor];
     gridView.translatesAutoresizingMaskIntoConstraints = NO;
+    [gridView.widthAnchor constraintEqualToConstant:gridWidth].active = YES;
+    [gridView.heightAnchor constraintEqualToConstant:totalHeight].active = YES;
 
-    UIColor *neutralDivider = [UIColor colorWithWhite:0.84 alpha:0.85];
+    UIColor *neutralDivider = [UIColor colorWithWhite:0.75 alpha:0.5];
 
     UIView *topBorder = [[UIView alloc] init];
     topBorder.backgroundColor = neutralDivider;
@@ -338,23 +357,16 @@ static NSString * const kBannerCellID  = @"BannerCell";
         [topBorder.topAnchor constraintEqualToAnchor:gridView.topAnchor],
         [topBorder.leadingAnchor constraintEqualToAnchor:gridView.leadingAnchor],
         [topBorder.trailingAnchor constraintEqualToAnchor:gridView.trailingAnchor],
-        [topBorder.heightAnchor constraintEqualToConstant:0.5],
+        [topBorder.heightAnchor constraintEqualToConstant:1.0],
     ]];
-
-    NSInteger rowCount = (NSInteger)ceil((double)items.count / cols);
-    CGFloat rowHeight = cellSize * 1.3;
-    CGFloat totalHeight = rowHeight * rowCount;
-
-    [gridView.heightAnchor constraintEqualToConstant:totalHeight].active = YES;
 
     for (NSInteger i = 0; i < (NSInteger)items.count; i++) {
         NSDictionary *item = items[i];
-        NSInteger col = i % cols;
+        NSInteger col    = i % cols;
         NSInteger rowIdx = i / cols;
 
         UIButton *cell = [UIButton buttonWithType:UIButtonTypeSystem];
         cell.translatesAutoresizingMaskIntoConstraints = NO;
-        cell.tag = 1000 + i;
         cell.backgroundColor = [UIColor clearColor];
         objc_setAssociatedObject(cell, "itemData", item, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [cell addTarget:self action:@selector(gridItemTapped:) forControlEvents:UIControlEventTouchUpInside];
@@ -367,36 +379,36 @@ static NSString * const kBannerCellID  = @"BannerCell";
             [cell.heightAnchor constraintEqualToConstant:rowHeight],
         ]];
 
-        NSString *colorHex = item[@"color"] ?: @"#374151";
-        UIColor *baseColor = [self colorFromHex:colorHex];
-        UIColor *iconColor = [self iconColorFromBaseColor:baseColor];
-        UIColor *titleColor = [self titleColorFromBaseColor:baseColor];
-        UIColor *tintedDivider = [self dividerColorFromBaseColor:baseColor];
-        
-        // Right border (except last in row)
+        NSString *colorHex  = item[@"color"] ?: @"#374151";
+        UIColor  *baseColor = [self colorFromHex:colorHex];
+        UIColor  *iconColor  = [self iconColorFromBaseColor:baseColor];
+        UIColor  *titleColor = [self titleColorFromBaseColor:baseColor];
+        UIColor  *divColor   = [self dividerColorFromBaseColor:baseColor];
+
+        // Right border
         if (col < cols - 1) {
-            UIView *rightBorder = [[UIView alloc] init];
-            rightBorder.backgroundColor = tintedDivider;
-            rightBorder.translatesAutoresizingMaskIntoConstraints = NO;
-            [gridView addSubview:rightBorder];
+            UIView *rb = [[UIView alloc] init];
+            rb.backgroundColor = divColor;
+            rb.translatesAutoresizingMaskIntoConstraints = NO;
+            [gridView addSubview:rb];
             [NSLayoutConstraint activateConstraints:@[
-                [rightBorder.topAnchor constraintEqualToAnchor:cell.topAnchor constant:10],
-                [rightBorder.bottomAnchor constraintEqualToAnchor:cell.bottomAnchor constant:-10],
-                [rightBorder.trailingAnchor constraintEqualToAnchor:cell.trailingAnchor],
-                [rightBorder.widthAnchor constraintEqualToConstant:0.8],
+                [rb.topAnchor constraintEqualToAnchor:cell.topAnchor constant:10],
+                [rb.bottomAnchor constraintEqualToAnchor:cell.bottomAnchor constant:-10],
+                [rb.trailingAnchor constraintEqualToAnchor:cell.trailingAnchor],
+                [rb.widthAnchor constraintEqualToConstant:1.0],
             ]];
         }
-        
+
         // Bottom border
-        UIView *bottomBorder = [[UIView alloc] init];
-        bottomBorder.backgroundColor = neutralDivider;
-        bottomBorder.translatesAutoresizingMaskIntoConstraints = NO;
-        [gridView addSubview:bottomBorder];
+        UIView *bb = [[UIView alloc] init];
+        bb.backgroundColor = neutralDivider;
+        bb.translatesAutoresizingMaskIntoConstraints = NO;
+        [gridView addSubview:bb];
         [NSLayoutConstraint activateConstraints:@[
-            [bottomBorder.bottomAnchor constraintEqualToAnchor:cell.bottomAnchor],
-            [bottomBorder.leadingAnchor constraintEqualToAnchor:cell.leadingAnchor],
-            [bottomBorder.trailingAnchor constraintEqualToAnchor:cell.trailingAnchor],
-            [bottomBorder.heightAnchor constraintEqualToConstant:0.5],
+            [bb.bottomAnchor constraintEqualToAnchor:cell.bottomAnchor],
+            [bb.leadingAnchor constraintEqualToAnchor:cell.leadingAnchor],
+            [bb.trailingAnchor constraintEqualToAnchor:cell.trailingAnchor],
+            [bb.heightAnchor constraintEqualToConstant:1.0],
         ]];
 
         NSString *iconName = item[@"icon_name"];
@@ -404,12 +416,10 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
         if (hasPngIcon) {
             UIImageView *iconView = [[UIImageView alloc] init];
-            UIImage *img = [[UIImage imageNamed:iconName] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-            iconView.image = img;
+            iconView.image = [[UIImage imageNamed:iconName] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
             iconView.tintColor = iconColor;
             iconView.contentMode = UIViewContentModeScaleAspectFit;
             iconView.translatesAutoresizingMaskIntoConstraints = NO;
-            CGFloat iconSize = cellSize * 0.38;
             [cell addSubview:iconView];
             [NSLayoutConstraint activateConstraints:@[
                 [iconView.centerXAnchor constraintEqualToAnchor:cell.centerXAnchor],
@@ -420,10 +430,7 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
             UILabel *titleLabel = [[UILabel alloc] init];
             titleLabel.text = item[@"title"];
-            CGFloat labelSize = cellSize * 0.13;
             titleLabel.font = [UIFont fontWithName:@"Karla-SemiBold" size:labelSize];
-            titleLabel.adjustsFontSizeToFitWidth = NO;
-            titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
             titleLabel.numberOfLines = 2;
             titleLabel.textColor = titleColor;
             titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -438,19 +445,16 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
         } else if (item[@"icon_value"] && item[@"icon_value"] != (id)[NSNull null]) {
             UILabel *iconLabel = [[UILabel alloc] init];
-            CGFloat iconSize = cellSize * 0.30;
             NSString *iconStyle = item[@"icon_style"] ?: @"regular";
-            NSString *fontName = [iconStyle isEqualToString:@"regular"] ? @"FontAwesome6Free-Regular" : @"FontAwesome6Free-Solid";
-            iconLabel.font = [UIFont fontWithName:fontName size:iconSize];
+            NSString *fontName  = [iconStyle isEqualToString:@"regular"] ? @"FontAwesome6Free-Regular" : @"FontAwesome6Free-Solid";
+            iconLabel.font = [UIFont fontWithName:fontName size:faIconSize];
             iconLabel.textColor = iconColor;
             iconLabel.textAlignment = NSTextAlignmentCenter;
             iconLabel.translatesAutoresizingMaskIntoConstraints = NO;
-
             NSString *hex = item[@"icon_value"];
             unsigned hexVal = 0;
             [[NSScanner scannerWithString:hex] scanHexInt:&hexVal];
             iconLabel.text = [NSString stringWithFormat:@"%C", (unichar)hexVal];
-
             [cell addSubview:iconLabel];
             [NSLayoutConstraint activateConstraints:@[
                 [iconLabel.centerXAnchor constraintEqualToAnchor:cell.centerXAnchor],
@@ -459,10 +463,7 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
             UILabel *titleLabel = [[UILabel alloc] init];
             titleLabel.text = item[@"title"];
-            CGFloat labelSize = cellSize * 0.102;
-            titleLabel.font = [UIFont fontWithName:@"Karla-Regular" size:labelSize];
-            titleLabel.adjustsFontSizeToFitWidth = NO;
-            titleLabel.lineBreakMode = NSLineBreakByTruncatingTail;
+            titleLabel.font = [UIFont fontWithName:@"Karla-Regular" size:faLabelSize];
             titleLabel.numberOfLines = 2;
             titleLabel.textColor = titleColor;
             titleLabel.textAlignment = NSTextAlignmentCenter;
@@ -477,7 +478,17 @@ static NSString * const kBannerCellID  = @"BannerCell";
         }
     }
 
-    [_stackView addArrangedSubview:gridView];
+    // Wrap in full-width container, centring the grid on iPad
+    UIView *wrapper = [[UIView alloc] init];
+    wrapper.backgroundColor = [UIColor clearColor];
+    wrapper.translatesAutoresizingMaskIntoConstraints = NO;
+    [wrapper addSubview:gridView];
+    [NSLayoutConstraint activateConstraints:@[
+        [gridView.centerXAnchor constraintEqualToAnchor:wrapper.centerXAnchor],
+        [gridView.topAnchor constraintEqualToAnchor:wrapper.topAnchor],
+        [gridView.bottomAnchor constraintEqualToAnchor:wrapper.bottomAnchor],
+    ]];
+    [_stackView addArrangedSubview:wrapper];
 }
 
 #pragma mark - Grid Tap
@@ -642,6 +653,7 @@ static NSString * const kBannerCellID  = @"BannerCell";
 #pragma mark - PDF Handling
 
 - (void)openPDF:(NewsItem *)item {
+    NSLog(@"🔵 openPDF called with URL: %@", item.webURL);
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc]
                                         initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     spinner.translatesAutoresizingMaskIntoConstraints = NO;
@@ -655,33 +667,45 @@ static NSString * const kBannerCellID  = @"BannerCell";
     NSURL *remoteURL = [NSURL URLWithString:item.webURL];
     NSURLSessionDownloadTask *task = [[NSURLSession sharedSession]
         downloadTaskWithURL:remoteURL
-          completionHandler:^(NSURL *tmpURL, NSURLResponse *response, NSError *error) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [spinner stopAnimating];
-            [spinner removeFromSuperview];
-            if (error || !tmpURL) {
-                UIAlertController *alert = [UIAlertController
-                    alertControllerWithTitle:@"Error"
-                    message:@"No se pudo cargar el PDF."
-                    preferredStyle:UIAlertControllerStyleAlert];
-                [alert addAction:[UIAlertAction actionWithTitle:@"OK"
-                    style:UIAlertActionStyleDefault handler:nil]];
-                [self presentViewController:alert animated:YES completion:nil];
-                return;
-            }
-            NSString *filename = [item.webURL lastPathComponent];
-            NSURL *cachesDir   = [[[NSFileManager defaultManager]
-                                   URLsForDirectory:NSCachesDirectory
-                                   inDomains:NSUserDomainMask] firstObject];
-            NSURL *destURL     = [cachesDir URLByAppendingPathComponent:filename];
-            [[NSFileManager defaultManager] removeItemAtURL:destURL error:nil];
-            [[NSFileManager defaultManager] moveItemAtURL:tmpURL toURL:destURL error:nil];
-            self.localPDFURL = destURL;
-            QLPreviewController *ql = [[QLPreviewController alloc] init];
-            ql.dataSource = self;
-            [self.navigationController pushViewController:ql animated:YES];
-        });
-    }];
+                                      completionHandler:^(NSURL *tmpURL, NSURLResponse *response, NSError *error) {
+                                          // Move IMMEDIATELY here, before dispatching to main thread
+                                          NSURL *cachesDir = [[[NSFileManager defaultManager]
+                                                               URLsForDirectory:NSCachesDirectory
+                                                               inDomains:NSUserDomainMask] firstObject];
+        NSString *filename = [item.title stringByAppendingPathExtension:@"pdf"];
+                                          NSURL *destURL = [cachesDir URLByAppendingPathComponent:filename];
+                                          
+                                          BOOL fileReady = NO;
+                                          if (!error && tmpURL) {
+                                              [[NSFileManager defaultManager] removeItemAtURL:destURL error:nil];
+                                              NSError *moveError = nil;
+                                              fileReady = [[NSFileManager defaultManager] moveItemAtURL:tmpURL
+                                                                                                  toURL:destURL
+                                                                                                  error:&moveError];
+                                              if (!fileReady) {
+                                                  NSLog(@"🔴 Move failed: %@", moveError);
+                                              }
+                                          }
+                                          
+                                          dispatch_async(dispatch_get_main_queue(), ^{
+                                              [spinner stopAnimating];
+                                              [spinner removeFromSuperview];
+                                              if (!fileReady) {
+                                                  UIAlertController *alert = [UIAlertController
+                                                      alertControllerWithTitle:@"Error"
+                                                      message:@"No se pudo cargar el PDF."
+                                                      preferredStyle:UIAlertControllerStyleAlert];
+                                                  [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+                                                      style:UIAlertActionStyleDefault handler:nil]];
+                                                  [self presentViewController:alert animated:YES completion:nil];
+                                                  return;
+                                              }
+                                              self.localPDFURL = destURL;
+                                              QLPreviewController *ql = [[QLPreviewController alloc] init];
+                                              ql.dataSource = self;
+                                              [self.navigationController pushViewController:ql animated:YES];
+                                          });
+                                      }];
     [task resume];
 }
 
@@ -776,6 +800,10 @@ static NSString * const kBannerCellID  = @"BannerCell";
 - (void)drawerDidSelectSettings {
     SettingsViewController *settingsVC = [[SettingsViewController alloc] init];
     [self.navigationController pushViewController:settingsVC animated:YES];
+}
+
+- (BOOL)isPad {
+    return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad;
 }
 
 @end

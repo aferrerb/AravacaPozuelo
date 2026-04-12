@@ -244,6 +244,8 @@
 #pragma mark - PDF
 
 - (void)openPDF:(NewsItem *)item {
+    NSLog(@"🔵 openPDF called with URL: %@", item.webURL);
+
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc]
                                         initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
     spinner.translatesAutoresizingMaskIntoConstraints = NO;
@@ -255,24 +257,44 @@
     [spinner startAnimating];
 
     NSURL *remoteURL = [NSURL URLWithString:item.webURL];
-    [[NSURLSession sharedSession] downloadTaskWithURL:remoteURL
-        completionHandler:^(NSURL *tmpURL, NSURLResponse *r, NSError *e) {
+    [[[NSURLSession sharedSession] downloadTaskWithURL:remoteURL
+        completionHandler:^(NSURL *tmpURL, NSURLResponse *response, NSError *error) {
+        // Move IMMEDIATELY on background thread before iOS deletes the tmp file
+        NSURL *cachesDir = [[[NSFileManager defaultManager]
+                             URLsForDirectory:NSCachesDirectory
+                             inDomains:NSUserDomainMask] firstObject];
+        NSString *filename = [item.title stringByAppendingPathExtension:@"pdf"];
+        NSURL *destURL = [cachesDir URLByAppendingPathComponent:filename];
+
+        BOOL fileReady = NO;
+        if (!error && tmpURL) {
+            [[NSFileManager defaultManager] removeItemAtURL:destURL error:nil];
+            NSError *moveError = nil;
+            fileReady = [[NSFileManager defaultManager] moveItemAtURL:tmpURL
+                                                                toURL:destURL
+                                                                error:&moveError];
+            if (!fileReady) NSLog(@"🔴 Move failed: %@", moveError);
+        }
+
         dispatch_async(dispatch_get_main_queue(), ^{
             [spinner stopAnimating];
             [spinner removeFromSuperview];
-            if (e || !tmpURL) return;
-            NSURL *cachesDir = [[[NSFileManager defaultManager]
-                                 URLsForDirectory:NSCachesDirectory
-                                 inDomains:NSUserDomainMask] firstObject];
-            NSURL *destURL = [cachesDir URLByAppendingPathComponent:[item.webURL lastPathComponent]];
-            [[NSFileManager defaultManager] removeItemAtURL:destURL error:nil];
-            [[NSFileManager defaultManager] moveItemAtURL:tmpURL toURL:destURL error:nil];
+            if (!fileReady) {
+                UIAlertController *alert = [UIAlertController
+                    alertControllerWithTitle:@"Error"
+                    message:@"No se pudo cargar el PDF."
+                    preferredStyle:UIAlertControllerStyleAlert];
+                [alert addAction:[UIAlertAction actionWithTitle:@"OK"
+                    style:UIAlertActionStyleDefault handler:nil]];
+                [self presentViewController:alert animated:YES completion:nil];
+                return;
+            }
             self.localPDFURL = destURL;
             QLPreviewController *ql = [[QLPreviewController alloc] init];
             ql.dataSource = self;
             [self.navigationController pushViewController:ql animated:YES];
         });
-    }];
+    }] resume];
 }
 
 #pragma mark - QLPreviewControllerDataSource

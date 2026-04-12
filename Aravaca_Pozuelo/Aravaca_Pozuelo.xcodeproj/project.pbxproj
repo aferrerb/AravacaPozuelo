@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D1A760A12F884D0D00CF15E5 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D1A760A02F884D0D00CF15E5 /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		D1A7603E2F6B47DC00CF15E5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		D1A760222F6B47DA00CF15E5 /* Aravaca_Pozuelo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Aravaca_Pozuelo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1A7603D2F6B47DC00CF15E5 /* Aravaca_PozueloTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Aravaca_PozueloTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D1A760472F6B47DD00CF15E5 /* Aravaca_PozueloUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Aravaca_PozueloUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1A760A02F884D0D00CF15E5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -88,6 +93,7 @@
 		D1A760192F6B47DA00CF15E5 = {
 			isa = PBXGroup;
 			children = (
+				D1A760A02F884D0D00CF15E5 /* PrivacyInfo.xcprivacy */,
 				D1A760242F6B47DA00CF15E5 /* Aravaca_Pozuelo */,
 				D1A760402F6B47DC00CF15E5 /* Aravaca_PozueloTests */,
 				D1A7604A2F6B47DD00CF15E5 /* Aravaca_PozueloUITests */,
@@ -224,6 +230,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D1A760A12F884D0D00CF15E5 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,7 +294,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = XJ6EVSFF4Y;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Aravaca_Pozuelo/Info.plist;
@@ -305,6 +312,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.appleia.Aravaca-Pozuelo";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -316,7 +327,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = XJ6EVSFF4Y;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Aravaca_Pozuelo/Info.plist;
@@ -334,6 +345,10 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.appleia.Aravaca-Pozuelo";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
