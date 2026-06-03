@@ -45,9 +45,20 @@
 			</array>
 		</dict>
 	</dict>
-	<key>UIRequiresFullScreen</key>
-	<true/>
-	<key>ITSAppUsesNonExemptEncryption</key>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>branch_key</key>
+	<string>key_live_nDrC7I8tX7wcq2TrJEVb5jagEAkKdVYY</string>
+	<key>Branch_universal_link_domains</key>
+	<array>
+		<string>aravaca.app.link</string>
+		<string>aravaca-alternate.app.link</string>
+	</array>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Esta app usa datos anónimos para mejorar tu experiencia</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
 </dict>
 </plist>

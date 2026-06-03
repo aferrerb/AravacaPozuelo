@@ -15,4 +15,5 @@
 + (void)presentGateFrom:(UIViewController *)presentingVC
         credentialsHint:(NSString *)hint
              completion:(void (^)(BOOL granted))completion;
+
 @end

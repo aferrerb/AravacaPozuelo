@@ -2,56 +2,261 @@
 //  SceneDelegate.m
 //  Aravaca_Pozuelo
 //
-//  Created by Ana Ferrer-Bonsoms on 18/03/2026.
-//
 
 #import "SceneDelegate.h"
+#import <AppTrackingTransparency/AppTrackingTransparency.h>
+#import <UserNotifications/UserNotifications.h>
 
-@interface SceneDelegate ()
+@import BranchSDK;
 
+@interface SceneDelegate () <UNUserNotificationCenterDelegate>
 @end
 
 @implementation SceneDelegate
 
-
 - (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)connectionOptions {
-    // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
-    // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
-    // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
+
+    [UNUserNotificationCenter currentNotificationCenter].delegate = self;
+
+    [[Branch getInstance] initSessionWithLaunchOptions:nil
+                             andRegisterDeepLinkHandler:^(NSDictionary *params, NSError *error) {
+
+        if (error) {
+            NSLog(@"❌ Branch error: %@", error);
+            return;
+        }
+
+        NSLog(@"🌿 Branch params: %@", params);
+
+        BOOL clicked = [params[@"+clicked_branch_link"] boolValue];
+
+        if (!clicked) {
+            NSLog(@"🌿 Not a clicked Branch link");
+            return;
+        }
+
+        NSString *destinationType = params[@"destination_type"];
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            
+            NSString *linkSecret = params[@"gate_secret"];
+            if ([linkSecret isEqualToString:@"open-the-date"]) {
+                [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"ap_gate_unlocked"];
+                [[NSUserDefaults standardUserDefaults] synchronize];
+            }
+
+            [[NSUserDefaults standardUserDefaults] setObject:destinationType ?: @""
+                                                      forKey:@"PendingDeepLinkType"];
+
+            [[NSUserDefaults standardUserDefaults] setObject:params[@"destination_url"] ?: @""
+                                                      forKey:@"PendingDeepLinkURL"];
+
+            [[NSUserDefaults standardUserDefaults] setObject:params[@"article_id"] ?: @""
+                                                      forKey:@"PendingDeepLinkArticleID"];
+
+            [[NSUserDefaults standardUserDefaults] setObject:params[@"page_id"] ?: @""
+                                                      forKey:@"PendingDeepLinkPageID"];
+
+            [[NSUserDefaults standardUserDefaults] setObject:params[@"title"] ?: @""
+                                                      forKey:@"PendingDeepLinkTitle"];
+
+            [[NSUserDefaults standardUserDefaults] synchronize];
+
+            [[NSNotificationCenter defaultCenter]
+                postNotificationName:@"BranchDeepLinkReceived"
+                              object:nil
+                            userInfo:@{
+                                @"destination_type": destinationType ?: @"",
+                                @"destination_url":  params[@"destination_url"] ?: @"",
+                                @"article_id":       params[@"article_id"]      ?: @"",
+                                @"page_id":          params[@"page_id"]         ?: @"",
+                                @"title":            params[@"title"]           ?: @""
+                            }];
+        });
+    }];
+
+    // Cold start Universal Link
+    if (connectionOptions.userActivities.count) {
+        NSUserActivity *activity = connectionOptions.userActivities.anyObject;
+
+        NSLog(@"❄️ Cold start userActivity: %@", activity.webpageURL);
+
+        [[Branch getInstance] continueUserActivity:activity];
+    }
+
+    // Cold start custom scheme
+    if (connectionOptions.URLContexts.count) {
+        for (UIOpenURLContext *ctx in connectionOptions.URLContexts) {
+            NSLog(@"❄️ Cold start URLContext: %@", ctx.URL);
+
+            [[Branch getInstance] application:UIApplication.sharedApplication
+                                      openURL:ctx.URL
+                                      options:@{}];
+        }
+    }
 }
 
-
-- (void)sceneDidDisconnect:(UIScene *)scene {
-    // Called as the scene is being released by the system.
-    // This occurs shortly after the scene enters the background, or when its session is discarded.
-    // Release any resources associated with this scene that can be re-created the next time the scene connects.
-    // The scene may re-connect later, as its session was not necessarily discarded (see `application:didDiscardSceneSessions` instead).
-}
-
+#pragma mark - ATT + Push
 
 - (void)sceneDidBecomeActive:(UIScene *)scene {
-    // Called when the scene has moved from an inactive state to an active state.
-    // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+    if (@available(iOS 14, *)) {
+        BOOL didPrompt = [[NSUserDefaults standardUserDefaults] boolForKey:@"DidPromptATTAndNotifications"];
+        if (!didPrompt) {
+            [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"DidPromptATTAndNotifications"];
+            [[NSUserDefaults standardUserDefaults] synchronize];
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [ATTrackingManager requestTrackingAuthorizationWithCompletionHandler:^(ATTrackingManagerAuthorizationStatus status) {
+                    NSLog(@"ATT status = %ld", (long)status);
+                    [[Branch getInstance] handleATTAuthorizationStatus:status];
+
+                    UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+                    [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound | UNAuthorizationOptionBadge)
+                                         completionHandler:^(BOOL granted, NSError *error) {
+                        NSLog(@"Notification permission: %@", granted ? @"GRANTED" : @"DENIED");
+                        if (granted) {
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                [[UIApplication sharedApplication] registerForRemoteNotifications];
+                            });
+                            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                                NSString *fcmToken = [[NSUserDefaults standardUserDefaults] stringForKey:@"FCMToken"];
+                                if (fcmToken) {
+                                    [self sendTokenToServer:fcmToken];
+                                }
+                            });
+                        }
+                    }];
+                }];
+            });
+        }
+    } else {
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert | UNAuthorizationOptionSound | UNAuthorizationOptionBadge)
+                             completionHandler:^(BOOL granted, NSError *error) {
+            if (granted) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [[UIApplication sharedApplication] registerForRemoteNotifications];
+                });
+            }
+        }];
+    }
 }
 
+#pragma mark - Branch URL handling
 
-- (void)sceneWillResignActive:(UIScene *)scene {
-    // Called when the scene will move from an active state to an inactive state.
-    // This may occur due to temporary interruptions (ex. an incoming phone call).
+// This is the IMPORTANT one for warm-start Universal Links.
+// This is what fixed the other app.
+- (void)scene:(UIScene *)scene continueUserActivity:(NSUserActivity *)userActivity {
+    NSLog(@"🔥 Warm start userActivity WITHOUT restorationHandler");
+    NSLog(@"🔥 webpageURL: %@", userActivity.webpageURL);
+    NSLog(@"🔥 activityType: %@", userActivity.activityType);
+    NSLog(@"🔥 userInfo: %@", userActivity.userInfo);
+
+    [[Branch getInstance] continueUserActivity:userActivity];
 }
 
+// Keep this as a fallback.
+// Some iOS flows may still call this version.
+- (void)scene:(UIScene *)scene
+continueUserActivity:(NSUserActivity *)userActivity
+restorationHandler:(void (^)(NSArray<id<UIUserActivityRestoring>> * _Nullable))restorationHandler {
 
-- (void)sceneWillEnterForeground:(UIScene *)scene {
-    // Called as the scene transitions from the background to the foreground.
-    // Use this method to undo the changes made on entering the background.
+    NSLog(@"🔥 Warm start userActivity WITH restorationHandler");
+    NSLog(@"🔥 webpageURL: %@", userActivity.webpageURL);
+    NSLog(@"🔥 activityType: %@", userActivity.activityType);
+    NSLog(@"🔥 userInfo: %@", userActivity.userInfo);
+
+    [[Branch getInstance] continueUserActivity:userActivity];
 }
 
+// Custom scheme warm-start handling.
+- (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts {
 
-- (void)sceneDidEnterBackground:(UIScene *)scene {
-    // Called as the scene transitions from the foreground to the background.
-    // Use this method to save data, release shared resources, and store enough scene-specific state information
-    // to restore the scene back to its current state.
+    for (UIOpenURLContext *ctx in URLContexts) {
+        NSLog(@"🔥 Warm start openURL: %@", ctx.URL);
+
+        [[Branch getInstance] application:UIApplication.sharedApplication
+                                  openURL:ctx.URL
+                                  options:@{}];
+    }
 }
 
+#pragma mark - UNUserNotificationCenterDelegate
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+       willPresentNotification:(UNNotification *)notification
+         withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler {
+    NSDictionary *userInfo = notification.request.content.userInfo;
+    NSLog(@"📬 Notification received (foreground): %@", userInfo);
+    completionHandler(UNNotificationPresentationOptionBanner |
+                      UNNotificationPresentationOptionList  |
+                      UNNotificationPresentationOptionBadge |
+                      UNNotificationPresentationOptionSound);
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+didReceiveNotificationResponse:(UNNotificationResponse *)response
+         withCompletionHandler:(void (^)(void))completionHandler {
+
+    NSDictionary *userInfo = response.notification.request.content.userInfo;
+    NSLog(@"👆 Notification tapped: %@", userInfo);
+    // ADD THIS
+    BranchEvent *event = [BranchEvent customEventWithName:@"NOTIFICATION_TAPPED"];
+    event.alias = userInfo[@"title"] ?: @"unknown";
+    event.customData = @{
+        @"destination_type": userInfo[@"destination_type"] ?: @"",
+        @"destination_url":  userInfo[@"destination_url"]  ?: @"",
+        @"title":            userInfo[@"title"]            ?: @""
+    };
+    [event logEvent];
+    
+
+    NSString *destinationType = userInfo[@"destination_type"];
+    if (destinationType.length) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[NSNotificationCenter defaultCenter]
+                postNotificationName:@"BranchDeepLinkReceived"
+                              object:nil
+                            userInfo:@{
+                                @"destination_type": destinationType,
+                                @"destination_url":  userInfo[@"destination_url"] ?: @"",
+                                @"article_id":       userInfo[@"article_id"]      ?: @"",
+                                @"page_id":          userInfo[@"page_id"]         ?: @"",
+                                @"title":            userInfo[@"title"]           ?: @""
+                            }];
+        });
+    }
+
+    completionHandler();
+}
+
+#pragma mark - Token
+
+- (void)sendTokenToServer:(NSString *)fcmToken {
+    NSDictionary *payload = @{
+        @"token":       fcmToken,
+        @"device_type": @"ios"
+    };
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
+    NSURL *url = [NSURL URLWithString:@"https://ap.igroglobal.com/api/save_token.php"];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+    [request setHTTPMethod:@"POST"];
+    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setHTTPBody:jsonData];
+    [[[NSURLSession sharedSession] dataTaskWithRequest:request
+        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        if (error) {
+            NSLog(@"❌ Token send failed: %@", error);
+        } else {
+            NSLog(@"✅ Token sent to server");
+        }
+    }] resume];
+}
+
+#pragma mark - Unused scene lifecycle
+
+- (void)sceneDidDisconnect:(UIScene *)scene {}
+- (void)sceneWillResignActive:(UIScene *)scene {}
+- (void)sceneWillEnterForeground:(UIScene *)scene {}
+- (void)sceneDidEnterBackground:(UIScene *)scene {}
 
 @end

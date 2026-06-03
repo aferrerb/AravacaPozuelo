@@ -42,6 +42,8 @@ static NSString * const kBannerCellID  = @"BannerCell";
 @property (nonatomic, strong) NSURL                 *localPDFURL;
 @property (nonatomic, strong) NavDrawerViewController *drawer;
 
+
+
 @end
 
 @implementation HomeViewController
@@ -64,6 +66,11 @@ static NSString * const kBannerCellID  = @"BannerCell";
     [self setupScrollView];
     [self buildRows];
     [self setupDrawer];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleDeepLink:)
+                                                 name:@"BranchDeepLinkReceived"
+                                               object:nil];
+    
 }
 - (void)setupDrawer {
     _drawer = [[NavDrawerViewController alloc] init];
@@ -622,7 +629,13 @@ static NSString * const kBannerCellID  = @"BannerCell";
                     NSDictionary *d = item.rawData ?: @{};
                     NSString *body  = [d[@"article_body"]  isKindOfClass:[NSString class]] ? d[@"article_body"]  : @"";
                     NSString *image = [d[@"article_image"] isKindOfClass:[NSString class]] ? d[@"article_image"] : @"";
-                    articleVC.article = @{ @"title": item.title, @"body": body, @"image": image };
+                    NSDictionary *rawData = item.rawData ?: @{};
+                        articleVC.article = @{
+                            @"title": item.title,
+                            @"body":  body,
+                            @"image": image,
+                            @"id":    rawData[@"content"] ?: @0
+                        };
                     [self.navigationController pushViewController:articleVC animated:YES];
                 } else {
             NewsWebViewController *webVC = [[NewsWebViewController alloc] init];
@@ -804,6 +817,178 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
 - (BOOL)isPad {
     return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad;
+}
+
+#pragma mark - Version Check
+
+- (void)checkAppVersion {
+    NSURL *url = [NSURL URLWithString:@"https://ap.igroglobal.com/api/version.json"];
+    [[[NSURLSession sharedSession] dataTaskWithURL:url
+        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+            if (error || !data) return;
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            if (!json) return;
+
+            NSDictionary *ios = json[@"ios"];
+            if (!ios) return;
+
+            NSString *minimumVersion = ios[@"minimum_version"];
+            NSString *latestVersion  = ios[@"latest_version"];
+            NSString *updateURL      = ios[@"update_url"];
+            NSString *currentVersion = [[NSBundle mainBundle]
+                                        objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if ([self compareVersion:currentVersion isLessThan:minimumVersion]) {
+                    [[NSUserDefaults standardUserDefaults] setObject:@"forced" forKey:@"PendingUpdateType"];
+                    [[NSUserDefaults standardUserDefaults] setObject:updateURL forKey:@"PendingUpdateURL"];
+                } else if ([self compareVersion:currentVersion isLessThan:latestVersion]) {
+                    [[NSUserDefaults standardUserDefaults] setObject:@"soft" forKey:@"PendingUpdateType"];
+                    [[NSUserDefaults standardUserDefaults] setObject:updateURL forKey:@"PendingUpdateURL"];
+                }
+                [[NSUserDefaults standardUserDefaults] synchronize];
+                [self showPendingUpdateAlertIfNeeded];
+            });
+    }] resume];
+}
+
+- (void)showPendingUpdateAlertIfNeeded {
+    if (!self.view.window) return;
+    
+    NSString *type = [[NSUserDefaults standardUserDefaults] stringForKey:@"PendingUpdateType"];
+    NSString *updateURL = [[NSUserDefaults standardUserDefaults] stringForKey:@"PendingUpdateURL"];
+    if (!type.length) return;
+
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"PendingUpdateType"];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"PendingUpdateURL"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
+
+    [self showUpdateAlert:[type isEqualToString:@"forced"] updateURL:updateURL];
+}
+
+- (BOOL)compareVersion:(NSString *)current isLessThan:(NSString *)other {
+    return [current compare:other options:NSNumericSearch] == NSOrderedAscending;
+}
+
+- (void)showUpdateAlert:(BOOL)forced updateURL:(NSString *)updateURL {
+    NSString *title   = forced ? @"Actualización necesaria" : @"Nueva versión disponible";
+    NSString *message = forced
+        ? @"Esta versión ya no está soportada. Por favor actualiza la app para continuar."
+        : @"Hay una nueva versión disponible. ¿Quieres actualizar ahora?";
+
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:title
+                                                                   message:message
+                                                            preferredStyle:UIAlertControllerStyleAlert];
+
+    UIAlertAction *updateAction = [UIAlertAction actionWithTitle:@"Actualizar"
+        style:UIAlertActionStyleDefault
+        handler:^(UIAlertAction *action) {
+            NSURL *url = [NSURL URLWithString:updateURL];
+            if (url) [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+            if (forced) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)),
+                               dispatch_get_main_queue(), ^{
+                    [self showUpdateAlert:YES updateURL:updateURL];
+                });
+            }
+        }];
+
+    [alert addAction:updateAction];
+
+    if (!forced) {
+        [alert addAction:[UIAlertAction actionWithTitle:@"Ahora no"
+                                                  style:UIAlertActionStyleCancel
+                                                handler:nil]];
+    }
+
+    [self presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark - Deep Link
+
+- (void)handleDeepLink:(NSNotification *)notification {
+    NSDictionary *info = notification.userInfo;
+    NSString *type = info[@"destination_type"];
+    if (!type.length) return;
+
+    // IMPORTANT:
+    // Clear pending deep link immediately so returning to Home does not route again.
+    [self clearPendingDeepLink];
+
+    NSMutableDictionary *item = [NSMutableDictionary dictionary];
+    item[@"destination_type"] = type;
+
+    if ([type isEqualToString:@"article"]) {
+        item[@"destination_article_id"] = @([info[@"article_id"] integerValue]);
+
+    } else if ([type isEqualToString:@"page"]) {
+        item[@"destination_section_id"] = @([info[@"page_id"] integerValue]);
+        item[@"destination_type"] = @"section";
+        item[@"title"] = info[@"title"] ?: @"";
+
+    } else if ([type isEqualToString:@"url"] || [type isEqualToString:@"pdf"]) {
+        item[@"destination_url"] = info[@"destination_url"] ?: @"";
+        item[@"title"] = info[@"title"] ?: @"";
+    }
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.navigationController popToRootViewControllerAnimated:NO];
+        [self navigateToItem:item];
+    });
+}
+
+- (void)dealloc {
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    
+    static BOOL versionChecked = NO;
+    NSLog(@"version checked ");
+        if (!versionChecked) {
+            versionChecked = YES;
+            [self checkAppVersion];
+        }
+    
+    [self checkPendingDeepLink];
+    [self showPendingUpdateAlertIfNeeded];
+}
+
+- (void)checkPendingDeepLink {
+    NSString *type = [[NSUserDefaults standardUserDefaults] stringForKey:@"PendingDeepLinkType"];
+    NSLog(@"🔍 checkPendingDeepLink called, type=%@", type);
+
+    if (!type.length) return;
+
+    NSString *url       = [[NSUserDefaults standardUserDefaults] stringForKey:@"PendingDeepLinkURL"] ?: @"";
+    NSString *articleID = [[NSUserDefaults standardUserDefaults] stringForKey:@"PendingDeepLinkArticleID"] ?: @"";
+    NSString *pageID    = [[NSUserDefaults standardUserDefaults] stringForKey:@"PendingDeepLinkPageID"] ?: @"";
+    NSString *title     = [[NSUserDefaults standardUserDefaults] stringForKey:@"PendingDeepLinkTitle"] ?: @"";
+
+    // Clear before routing.
+    [self clearPendingDeepLink];
+
+    NSDictionary *info = @{
+        @"destination_type": type,
+        @"destination_url":  url,
+        @"article_id":       articleID,
+        @"page_id":          pageID,
+        @"title":            title
+    };
+
+    [self handleDeepLink:[NSNotification notificationWithName:@"BranchDeepLinkReceived"
+                                                       object:nil
+                                                     userInfo:info]];
+}
+
+- (void)clearPendingDeepLink {
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"PendingDeepLinkType"];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"PendingDeepLinkURL"];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"PendingDeepLinkArticleID"];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"PendingDeepLinkPageID"];
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"PendingDeepLinkTitle"];
+    [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
 @end

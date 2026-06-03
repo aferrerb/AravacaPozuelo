@@ -8,6 +8,8 @@
 #import "ArticleViewController.h"
 #import <WebKit/WebKit.h>
 
+@import BranchSDK;
+
 @interface ArticleViewController () <WKNavigationDelegate>
 @property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, assign) NSInteger fontSize;
@@ -25,6 +27,7 @@
     [self setupHeader];
     [self setupWebView];
     [self loadArticle];
+    [self trackViewEvent];
 }
 
 - (void)setupHeader {
@@ -162,22 +165,35 @@
 
 #pragma mark - Share
 
+#pragma mark - Share
+
 - (void)shareTapped {
     NSString *title = self.article[@"title"] ?: @"";
-    NSString *body  = self.article[@"body"]  ?: @"";
-    // Strip HTML tags for plain text sharing
-    NSRegularExpression *regex = [NSRegularExpression
-        regularExpressionWithPattern:@"<[^>]+>" options:0 error:nil];
-    NSString *plain = [regex stringByReplacingMatchesInString:body
-                                                      options:0
-                                                        range:NSMakeRange(0, body.length)
-                                                 withTemplate:@""];
-    NSString *shareText = [NSString stringWithFormat:@"%@\n\n%@", title, plain];
-    // TODO: replace shareText with deep link URL once implemented
-    UIActivityViewController *actVC = [[UIActivityViewController alloc]
-        initWithActivityItems:@[shareText]
-        applicationActivities:nil];
-    [self presentViewController:actVC animated:YES completion:nil];
+    NSInteger articleID = [self.article[@"id"] integerValue];
+
+    BranchUniversalObject *buo = [[BranchUniversalObject alloc]
+        initWithCanonicalIdentifier:[NSString stringWithFormat:@"article/%ld", (long)articleID]];
+    buo.title = title;
+    buo.contentDescription = title;
+
+    BranchLinkProperties *lp = [[BranchLinkProperties alloc] init];
+    lp.feature = @"sharing";
+    [lp addControlParam:@"destination_type" withValue:@"article"];
+    [lp addControlParam:@"article_id" withValue:[NSString stringWithFormat:@"%ld", (long)articleID]];
+    [lp addControlParam:@"title" withValue:title];
+
+    [buo getShortUrlWithLinkProperties:lp andCallback:^(NSString *url, NSError *error) {
+        if (error || !url) {
+            NSLog(@"❌ Branch link error: %@", error);
+            return;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIActivityViewController *actVC = [[UIActivityViewController alloc]
+                initWithActivityItems:@[url]
+                applicationActivities:nil];
+            [self presentViewController:actVC animated:YES completion:nil];
+        });
+    }];
 }
 
 - (void)setupWebView {
@@ -236,6 +252,23 @@
     [self.navigationController popViewControllerAnimated:YES];
 }
 
+#pragma mark - Branch Events
+
+- (void)trackViewEvent {
+    NSString *title = self.article[@"title"] ?: @"";
+    NSInteger articleID = [self.article[@"id"] integerValue];
+
+    BranchUniversalObject *buo = [[BranchUniversalObject alloc]
+        initWithCanonicalIdentifier:[NSString stringWithFormat:@"article/%ld", (long)articleID]];
+    buo.title = title;
+    buo.contentMetadata.contentSchema = BranchContentSchemaCommerceProduct;
+
+    BranchEvent *event = [BranchEvent standardEvent:BranchStandardEventViewItem
+                                    withContentItem:buo];
+    event.alias = [NSString stringWithFormat:@"%@", title];
+    [event logEvent];
+}
+
 #pragma mark - WKNavigationDelegate
 
 - (void)webView:(WKWebView *)webView
@@ -244,12 +277,33 @@
 
     NSURL *url = navigationAction.request.URL;
 
+    // Allow the initial HTML load
+    if (navigationAction.navigationType == WKNavigationTypeOther) {
+        decisionHandler(WKNavigationActionPolicyAllow);
+        return;
+    }
+
     if ([url.scheme isEqualToString:@"mailto"]) {
         if ([[UIApplication sharedApplication] canOpenURL:url]) {
             [[UIApplication sharedApplication] openURL:url
                                                options:@{}
                                      completionHandler:nil];
         }
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+
+    // Open http/https links in Safari
+    if ([url.scheme isEqualToString:@"http"] || [url.scheme isEqualToString:@"https"]) {
+        
+        BranchEvent *event = [BranchEvent customEventWithName:@"LINK_TAPPED"];
+        event.customData = @{ @"url": url.absoluteString };
+        event.alias = url.absoluteString;
+        [event logEvent];
+        
+        [[UIApplication sharedApplication] openURL:url
+                                           options:@{}
+                                 completionHandler:nil];
         decisionHandler(WKNavigationActionPolicyCancel);
         return;
     }

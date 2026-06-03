@@ -8,6 +8,8 @@
 #import <WebKit/WebKit.h>
 #import "CredentialsHintViewController.h"
 
+@import BranchSDK;
+
 @interface NewsWebViewController ()
 @property (nonatomic, strong) UIView    *headerView;
 @property (nonatomic, strong) WKWebView *webView;
@@ -82,6 +84,23 @@
         [titleLabel.leadingAnchor constraintEqualToAnchor:_headerView.leadingAnchor constant:52],
         [titleLabel.trailingAnchor constraintEqualToAnchor:_headerView.trailingAnchor constant:-52],
     ]];
+    
+    UIButton *shareBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    UIImage *shareIcon = [UIImage systemImageNamed:@"square.and.arrow.up"];
+    [shareBtn setImage:shareIcon forState:UIControlStateNormal];
+    shareBtn.tintColor = [UIColor colorWithRed:0x2D/255.0
+                                         green:0x5E/255.0
+                                          blue:0x61/255.0
+                                         alpha:1.0];
+    shareBtn.translatesAutoresizingMaskIntoConstraints = NO;
+    [shareBtn addTarget:self action:@selector(shareTapped) forControlEvents:UIControlEventTouchUpInside];
+    [_headerView addSubview:shareBtn];
+    [NSLayoutConstraint activateConstraints:@[
+        [shareBtn.trailingAnchor constraintEqualToAnchor:_headerView.trailingAnchor constant:-12],
+        [shareBtn.bottomAnchor constraintEqualToAnchor:_headerView.bottomAnchor constant:-14],
+        [shareBtn.widthAnchor constraintEqualToConstant:36],
+        [shareBtn.heightAnchor constraintEqualToConstant:36],
+    ]];
 
     UIView *sep = [[UIView alloc] init];
     sep.backgroundColor = [UIColor colorWithWhite:0.85 alpha:1.0];
@@ -146,6 +165,36 @@
 // ── Navigation — same pattern as CDR app ─────────────────────────────────────
 - (void)closeToHome {
     [self.navigationController popViewControllerAnimated:YES];
+}
+
+#pragma mark - Share
+
+- (void)shareTapped {
+    NSString *title = self.newsTitle ?: @"";
+    NSString *url   = self.urlString ?: @"";
+
+    BranchUniversalObject *buo = [[BranchUniversalObject alloc]
+        initWithCanonicalIdentifier:[NSString stringWithFormat:@"url/%@", url]];
+    buo.title = title;
+
+    BranchLinkProperties *lp = [[BranchLinkProperties alloc] init];
+    lp.feature = @"sharing";
+    [lp addControlParam:@"destination_type" withValue:@"url"];
+    [lp addControlParam:@"destination_url" withValue:url];
+    [lp addControlParam:@"title" withValue:title];
+
+    [buo getShortUrlWithLinkProperties:lp andCallback:^(NSString *branchURL, NSError *error) {
+        if (error || !branchURL) {
+            NSLog(@"❌ Branch link error: %@", error);
+            return;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            UIActivityViewController *actVC = [[UIActivityViewController alloc]
+                initWithActivityItems:@[branchURL]
+                applicationActivities:nil];
+            [self presentViewController:actVC animated:YES completion:nil];
+        });
+    }];
 }
 
 @end
