@@ -270,11 +270,12 @@ static NSString * const kCellID = @"NavDrawerCell";
 }
 
 - (void)navigateItem:(NSDictionary *)item dtype:(NSString *)dtype {
+    NSString *urlString = [item[@"destination_url"] isKindOfClass:[NSString class]] ? item[@"destination_url"] : @"";
+    
     if ([dtype isEqualToString:@"home"] || dtype == nil || [dtype isEqualToString:@""]) {
         [self.delegate drawerDidSelectHome];
     } else if ([dtype isEqualToString:@"url"]) {
-        [self.delegate drawerDidSelectURL:item[@"destination_url"] ?: @""
-                                    title:item[@"title"] ?: @""];
+        [self.delegate drawerDidSelectURL:urlString title:item[@"title"] ?: @""];
     } else if ([dtype isEqualToString:@"article"]) {
         NSInteger articleID = [item[@"destination_article_id"] integerValue];
         [self.delegate drawerDidSelectArticleID:articleID];
@@ -282,10 +283,10 @@ static NSString * const kCellID = @"NavDrawerCell";
         NSInteger pageID = [item[@"destination_page_id"] integerValue];
         [self.delegate drawerDidSelectPageID:pageID];
     } else if ([dtype isEqualToString:@"pdf"]) {
-        [self.delegate drawerDidSelectPDFURL:item[@"destination_url"] ?: @""
-                                       title:item[@"title"] ?: @""];
+        [self.delegate drawerDidSelectPDFURL:urlString title:item[@"title"] ?: @""];
     }
 }
+
 - (void)settingsTapped {
     [self closeAnimated:YES];
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)),

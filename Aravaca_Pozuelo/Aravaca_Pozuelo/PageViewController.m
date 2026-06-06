@@ -13,6 +13,7 @@
 #import "ArticleViewController.h"
 #import "GateKeeper.h"
 #import "CredentialsHintViewController.h"
+#import "CelebracionesViewController.h"
 
 @import BranchSDK;
 
@@ -230,10 +231,16 @@
 
 - (void)navigateToItem:(NSDictionary *)item {
     NSString *dtype = item[@"destination_type"];
+    NSString *urlString = [item[@"destination_url"] isKindOfClass:[NSString class]] ? item[@"destination_url"] : @"";
+    
+    if ([urlString containsString:@"fiestas"]) {
+        CelebracionesViewController *vc = [[CelebracionesViewController alloc] init];
+        vc.pageTitle = item[@"title"] ?: @"Celebraciones";
+        [self.navigationController pushViewController:vc animated:YES];
 
-    if ([dtype isEqualToString:@"url"]) {
+    } else if ([dtype isEqualToString:@"url"]) {
         NewsWebViewController *webVC = [[NewsWebViewController alloc] init];
-        webVC.urlString = item[@"destination_url"];
+        webVC.urlString = urlString;
         webVC.newsTitle = item[@"title"];
         webVC.credentialsHint = item[@"credentials_hint"] == (id)[NSNull null] ? nil : item[@"credentials_hint"];
         [self.navigationController pushViewController:webVC animated:YES];
@@ -245,7 +252,7 @@
         ArticleViewController *articleVC = [[ArticleViewController alloc] init];
         articleVC.article = article;
         [self.navigationController pushViewController:articleVC animated:YES];
-        
+
     } else if ([dtype isEqualToString:@"page"]) {
         PageViewController *pageVC = [[PageViewController alloc] init];
         pageVC.pageID = [item[@"destination_page_id"] integerValue];
@@ -254,7 +261,7 @@
     } else if ([dtype isEqualToString:@"pdf"]) {
         NewsItem *newsItem = [[NewsItem alloc] initWithTitle:item[@"title"] ?: @""
                                                    imageURL:@""
-                                                     webURL:item[@"destination_url"] ?: @""
+                                                     webURL:urlString
                                                 contentType:@"pdf"];
         [self openPDF:newsItem];
     }

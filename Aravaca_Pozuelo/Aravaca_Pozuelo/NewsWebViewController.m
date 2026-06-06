@@ -23,6 +23,7 @@
     [self setupHeader];
     [self setupWebView];
     [self loadNews];
+    [self trackViewEvent];
     if (self.credentialsHint && self.credentialsHint.length > 0) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
                        dispatch_get_main_queue(), ^{
@@ -133,6 +134,22 @@
         ]];
     }
 }
+
+- (void)trackViewEvent {
+    NSString *title = self.newsTitle;
+   // NSInteger articleID = [self.article[@"id"] integerValue];
+
+    BranchUniversalObject *buo = [[BranchUniversalObject alloc]
+        initWithCanonicalIdentifier:[NSString stringWithFormat:@"news %@", title]];
+    buo.title = title;
+    buo.contentMetadata.contentSchema = BranchContentSchemaCommerceProduct;
+
+    BranchEvent *event = [BranchEvent standardEvent:BranchStandardEventViewItem
+                                    withContentItem:buo];
+    event.alias = [NSString stringWithFormat:@"%@", title];
+    [event logEvent];
+}
+
 
 // ── Web View ──────────────────────────────────────────────────────────────────
 - (void)setupWebView {

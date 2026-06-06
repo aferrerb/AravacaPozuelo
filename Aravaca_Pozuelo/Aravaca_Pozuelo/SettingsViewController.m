@@ -7,6 +7,7 @@
 
 #import "SettingsViewController.h"
 #import "AppData.h"
+@import BranchSDK;
 
 static NSString * const kPreferredCentroKey = @"ap_preferred_centro";
 
@@ -121,7 +122,7 @@ static NSString * const kPreferredCentroKey = @"ap_preferred_centro";
 #pragma mark - UITableViewDataSource
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv {
-    return 3;
+    return 4;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)section {
@@ -129,12 +130,14 @@ static NSString * const kPreferredCentroKey = @"ap_preferred_centro";
         case 0: return @"Mi centro";
         case 1: return @"Caché";
         case 2: return @"Compartir";
+        case 3: return @"Versión";
     }
     return nil;
 }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)section {
     if (section == 0) return _centros.count;
+    if (section == 3) return 1;
     return 1;
 }
 
@@ -198,6 +201,13 @@ static NSString * const kPreferredCentroKey = @"ap_preferred_centro";
                                                      blue:0x61/255.0
                                                     alpha:1.0];
         cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+    }else if (indexPath.section == 3) {
+        NSString *version = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
+        NSString *build   = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleVersion"];
+        cell.textLabel.text = [NSString stringWithFormat:@"Versión %@ (%@)", version, build];
+        cell.textLabel.font = [UIFont fontWithName:@"Montserrat-Regular" size:16];
+        cell.textLabel.textColor = [UIColor grayColor];
+        cell.userInteractionEnabled = NO;
     }
 
     return cell;
@@ -256,12 +266,25 @@ static NSString * const kPreferredCentroKey = @"ap_preferred_centro";
 }
 
 - (void)shareApp {
-    NSString *shareText = @"Te recomiendo la app AravacaPozuelo";
-    // TODO: replace with App Store link when available
-    UIActivityViewController *actVC = [[UIActivityViewController alloc]
-        initWithActivityItems:@[shareText]
-        applicationActivities:nil];
-    [self presentViewController:actVC animated:YES completion:nil];
+    BranchUniversalObject *buo = [[BranchUniversalObject alloc]
+        initWithCanonicalIdentifier:@"app/recommend"];
+    buo.title = @"AravacaPozuelo";
+    buo.contentDescription = @"La app de la comunidad Aravaca Pozuelo";
+
+    BranchLinkProperties *lp = [[BranchLinkProperties alloc] init];
+    lp.feature = @"sharing";
+    lp.campaign = @"recommend";
+
+    [buo getShortUrlWithLinkProperties:lp andCallback:^(NSString *url, NSError *error) {
+        if (error || !url) return;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSString *text = [NSString stringWithFormat:@"Te recomiendo la app AravacaPozuelo 👉 %@", url];
+            UIActivityViewController *actVC = [[UIActivityViewController alloc]
+                initWithActivityItems:@[text]
+                applicationActivities:nil];
+            [self presentViewController:actVC animated:YES completion:nil];
+        });
+    }];
 }
 
 - (void)goBack {

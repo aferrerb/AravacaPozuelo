@@ -199,18 +199,22 @@ didReceiveNotificationResponse:(UNNotificationResponse *)response
 
     NSDictionary *userInfo = response.notification.request.content.userInfo;
     NSLog(@"👆 Notification tapped: %@", userInfo);
-    // ADD THIS
-    BranchEvent *event = [BranchEvent customEventWithName:@"NOTIFICATION_TAPPED"];
-    event.alias = userInfo[@"title"] ?: @"unknown";
-    event.customData = @{
-        @"destination_type": userInfo[@"destination_type"] ?: @"",
-        @"destination_url":  userInfo[@"destination_url"]  ?: @"",
-        @"title":            userInfo[@"title"]            ?: @""
-    };
-    [event logEvent];
-    
 
     NSString *destinationType = userInfo[@"destination_type"];
+    NSString *destinationURL  = userInfo[@"destination_url"] ?: @"";
+    NSString *title           = userInfo[@"title"] ?: @"";
+
+    // Save to NSUserDefaults so HomeViewController can pick it up on cold start
+    if (destinationType.length) {
+        [[NSUserDefaults standardUserDefaults] setObject:destinationType forKey:@"PendingDeepLinkType"];
+        [[NSUserDefaults standardUserDefaults] setObject:destinationURL  forKey:@"PendingDeepLinkURL"];
+        [[NSUserDefaults standardUserDefaults] setObject:@""             forKey:@"PendingDeepLinkArticleID"];
+        [[NSUserDefaults standardUserDefaults] setObject:@""             forKey:@"PendingDeepLinkPageID"];
+        [[NSUserDefaults standardUserDefaults] setObject:title           forKey:@"PendingDeepLinkTitle"];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
+
+    // Also post for warm/foreground case
     if (destinationType.length) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [[NSNotificationCenter defaultCenter]
@@ -218,10 +222,10 @@ didReceiveNotificationResponse:(UNNotificationResponse *)response
                               object:nil
                             userInfo:@{
                                 @"destination_type": destinationType,
-                                @"destination_url":  userInfo[@"destination_url"] ?: @"",
-                                @"article_id":       userInfo[@"article_id"]      ?: @"",
-                                @"page_id":          userInfo[@"page_id"]         ?: @"",
-                                @"title":            userInfo[@"title"]           ?: @""
+                                @"destination_url":  destinationURL,
+                                @"article_id":       @"",
+                                @"page_id":          @"",
+                                @"title":            title
                             }];
         });
     }

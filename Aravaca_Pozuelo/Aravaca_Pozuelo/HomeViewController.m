@@ -17,6 +17,7 @@
 #import "NavDrawerViewController.h"
 #import "GateKeeper.h"
 #import "SettingsViewController.h"
+#import "CelebracionesViewController.h"
 
 
 static NSString * const kNewsCellID    = @"NewsCell";
@@ -521,10 +522,16 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
 - (void)navigateToItem:(NSDictionary *)item {
     NSString *dtype = item[@"destination_type"];
+    NSString *urlString = [item[@"destination_url"] isKindOfClass:[NSString class]] ? item[@"destination_url"] : @"";
+    
+    if ([urlString containsString:@"fiestas"]) {
+        CelebracionesViewController *vc = [[CelebracionesViewController alloc] init];
+        vc.pageTitle = item[@"title"] ?: @"Celebraciones";
+        [self.navigationController pushViewController:vc animated:YES];
 
-    if ([dtype isEqualToString:@"url"]) {
+    } else if ([dtype isEqualToString:@"url"]) {
         NewsWebViewController *webVC = [[NewsWebViewController alloc] init];
-        webVC.urlString = item[@"destination_url"];
+        webVC.urlString = urlString;
         webVC.newsTitle = item[@"title"];
         [self.navigationController pushViewController:webVC animated:YES];
 
@@ -537,7 +544,7 @@ static NSString * const kBannerCellID  = @"BannerCell";
         articleVC.article = article;
         [self.navigationController pushViewController:articleVC animated:YES];
 
-    }  else if ([dtype isEqualToString:@"section"]) {
+    } else if ([dtype isEqualToString:@"section"]) {
         id sectionVal = item[@"destination_section_id"];
         PageViewController *pageVC = [[PageViewController alloc] init];
         pageVC.pageTitle = item[@"title"] ?: @"";
@@ -547,11 +554,13 @@ static NSString * const kBannerCellID  = @"BannerCell";
     } else if ([dtype isEqualToString:@"pdf"]) {
         NewsItem *newsItem = [[NewsItem alloc] initWithTitle:item[@"title"] ?: @""
                                                    imageURL:@""
-                                                     webURL:item[@"destination_url"] ?: @""
+                                                     webURL:urlString
                                                 contentType:@"pdf"];
         [self openPDF:newsItem];
     }
 }
+
+
 
 #pragma mark - UICollectionView DataSource
 
@@ -758,10 +767,20 @@ static NSString * const kBannerCellID  = @"BannerCell";
 }
 
 - (void)drawerDidSelectURL:(NSString *)urlString title:(NSString *)title {
-    NewsWebViewController *webVC = [[NewsWebViewController alloc] init];
-    webVC.urlString = urlString;
-    webVC.newsTitle = title;
-    [self.navigationController pushViewController:webVC animated:YES];
+    NSLog(@"🔍 drawerDidSelectURL called — url: %@ title: %@", urlString, title);
+    NSLog(@"🔍 containsFiestas: %@", [urlString containsString:@"fiestas.html"] ? @"YES" : @"NO");
+
+    
+    if ([urlString containsString:@"fiestas"]) {
+        CelebracionesViewController *vc = [[CelebracionesViewController alloc] init];
+        vc.pageTitle = title;
+        [self.navigationController pushViewController:vc animated:YES];
+    } else {
+        NewsWebViewController *webVC = [[NewsWebViewController alloc] init];
+        webVC.urlString = urlString;
+        webVC.newsTitle = title;
+        [self.navigationController pushViewController:webVC animated:YES];
+    }
 }
 
 - (void)drawerDidSelectArticleID:(NSInteger)articleID {
@@ -907,6 +926,8 @@ static NSString * const kBannerCellID  = @"BannerCell";
 #pragma mark - Deep Link
 
 - (void)handleDeepLink:(NSNotification *)notification {
+    NSLog(@"🔗 handleDeepLink called with: %@", notification.userInfo);
+
     NSDictionary *info = notification.userInfo;
     NSString *type = info[@"destination_type"];
     if (!type.length) return;
@@ -933,7 +954,10 @@ static NSString * const kBannerCellID  = @"BannerCell";
 
     dispatch_async(dispatch_get_main_queue(), ^{
         [self.navigationController popToRootViewControllerAnimated:NO];
-        [self navigateToItem:item];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            [self navigateToItem:item];
+        });
     });
 }
 
